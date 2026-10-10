@@ -8,7 +8,7 @@ Show the visual novel you're reading on your **Discord profile**: the game, your
   <a href="https://github.com/lennmoe/vnrpc/releases/latest"><b>Download</b></a> ·
   <a href="https://vnrpc-docs.vercel.app/"><b>Documentation</b></a> ·
   <a href="https://vnrpc-docs.vercel.app/troubleshooting/">Troubleshooting</a> ·
-  <a href="https://discord.gg/2SUrBSYzbK">Discord</a>
+  <a href="https://discord.gg/cDTUQFq4Hn">Discord</a>
 </p>
 
 A small Windows tray app, written in Rust with [Tauri](https://tauri.app). It reads the title of the VN's window, so most engines work without any setup. One light `.exe` (about 9 MB), nothing else to install.
@@ -71,7 +71,7 @@ Coming from 1.x (the Python version)? The update to 2.0 is offered in the app as
 
 ## Community
 
-Questions, bug reports, suggestions, and soon translations of the app into more languages: join the **[Discord server](https://discord.gg/2SUrBSYzbK)**. You can also [open an issue](https://github.com/lennmoe/vnrpc/issues).
+Questions, bug reports, suggestions, and soon translations of the app into more languages: join the **[Discord server](https://discord.gg/cDTUQFq4Hn)**. You can also [open an issue](https://github.com/lennmoe/vnrpc/issues).
 
 ## Documentation
 

@@ -1,7 +1,7 @@
 export const REPO = "https://github.com/lennmoe/vnrpc";
 export const RELEASES_PAGE = `${REPO}/releases`;
 
-export const DISCORD_INVITE = "https://discord.gg/2SUrBSYzbK";
+export const DISCORD_INVITE = "https://discord.gg/cDTUQFq4Hn";
 
 function windowsVersion() {
   return /Windows NT 10/.test(navigator.userAgent) ? "Windows 10/11" : "Windows";
