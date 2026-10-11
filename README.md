@@ -17,7 +17,7 @@ A small Windows tray app, written in Rust with [Tauri](https://tauri.app). It re
 
 - **Finds the VN by itself** (Ren'Py, KiriKiri, SiglusEngine, Unity…), or you pick the window by hand.
 - **Shows where you are**: prologue, chapter, route or ending, read from the window title (English, French, Japanese).
-- **Tracks time read** for each VN, with a day-by-day history. You can also set it by hand.
+- **Tracks time read** for each VN, with a day-by-day history, a reading calendar with streaks, and your progress against the average length on VNDB. You can also set it by hand.
 - **Covers** from VNDB or an image link.
 - **Privacy per game**: everything, no chapter, just "Visual Novel", or nothing. NSFW covers stay blurred and off Discord unless you allow them.
 - **Library** of every VN you've read, with a page for each one: status, rating, reading chart, screenshots and a Play button.
@@ -33,12 +33,12 @@ A small Windows tray app, written in Rust with [Tauri](https://tauri.app). It re
 
 **Now reading** ・ the VN being read, and exactly what your friends see on Discord. [Docs](https://vnrpc-docs.vercel.app/now-reading/)
 
-<p align="center"><img src="image/now-reading.png" width="820" alt="Now reading: Senren * Banka, Yoshino Route, and the Discord preview"></p>
+<p align="center"><img src="image/now-reading.png" width="820" alt="Now reading: Sanoba Witch, Nene Route, 22% read, and the Discord preview"></p>
 
-**Library** ・ every VN you've read, and a page for each one with its reading history. [Docs](https://vnrpc-docs.vercel.app/library/)
+**Library** ・ every VN you've read, your reading days over the year, and a page for each one with its progress and reading history. [Docs](https://vnrpc-docs.vercel.app/library/)
 
-<p align="center"><img src="image/library.png" width="820" alt="Library"></p>
-<p align="center"><img src="image/vn-page.png" width="820" alt="A VN's page: time read, chart, status and screenshots"></p>
+<p align="center"><img src="image/library.png" width="820" alt="Library with the reading calendar and its streaks"></p>
+<p align="center"><img src="image/vn-page.png" width="820" alt="A VN's page: time read, progress against the VNDB length, chart, status and screenshots"></p>
 
 **Screenshots** ・ one key in game; browse, copy or delete them in the gallery. [Docs](https://vnrpc-docs.vercel.app/screenshots/)
 
