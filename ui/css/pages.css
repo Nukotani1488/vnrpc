@@ -350,6 +350,46 @@
   transform: translateX(-50%);
 }
 
+.heatmap {
+  position: relative;
+}
+
+.heatmap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.heatmap text {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.heatmap rect {
+  fill: var(--surface-alt);
+}
+
+.heatmap rect.level-1 {
+  fill: color-mix(in srgb, var(--accent) 30%, var(--surface-alt));
+}
+
+.heatmap rect.level-2 {
+  fill: color-mix(in srgb, var(--accent) 55%, var(--surface-alt));
+}
+
+.heatmap rect.level-3 {
+  fill: color-mix(in srgb, var(--accent) 80%, var(--surface-alt));
+}
+
+.heatmap rect.level-4 {
+  fill: var(--accent);
+}
+
+.heatmap rect:hover {
+  stroke: var(--text);
+  stroke-width: 1;
+}
+
 .vn-results {
   display: flex;
   flex-direction: column;

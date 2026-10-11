@@ -1,9 +1,19 @@
 import { $, el, html } from "../dom.js";
-import { capitalize, formatPlaytime, isoDay, addDays, lastPlayed, plural } from "../format.js";
+import {
+  addDays,
+  capitalize,
+  formatPlaytime,
+  isoDay,
+  lastPlayed,
+  midnight,
+  parseDay,
+  plural,
+} from "../format.js";
 import { register, show } from "../router.js";
 import { store, subscribe } from "../store.js";
 import { call, confirmButton, segmented, setCover, toast } from "../ui.js";
 import { playGame } from "../components/play.js";
+import { drawHeatmap } from "../components/heatmap.js";
 
 const TEMPLATE = `
   <div class="page-head lib-head">
@@ -30,6 +40,15 @@ const TEMPLATE = `
   </div>
 
   <div class="muted" data-id="summary"></div>
+
+  <div class="card" data-id="activity" hidden>
+    <div class="card-title">
+      <b>Reading days</b>
+      <span class="muted small-text" data-id="streaks"></span>
+    </div>
+    <div data-id="heatmap"></div>
+  </div>
+
   <div class="lib-list" data-id="list"></div>
 `;
 
@@ -60,6 +79,62 @@ function build(container) {
 async function load() {
   games = await call("get_library");
   render();
+  renderActivity();
+}
+
+function readingDays() {
+  const days = {};
+  for (const game of games) {
+    for (const [day, seconds] of Object.entries(game.daily || {})) {
+      if (seconds > 0) {
+        days[day] ??= { seconds: 0, names: [] };
+        days[day].seconds += seconds;
+        days[day].names.push(game.name);
+      }
+    }
+  }
+  return days;
+}
+
+function streaks(days) {
+  const today = midnight(new Date());
+  let day = days[isoDay(today)] ? today : addDays(today, -1);
+  let current = 0;
+  while (days[isoDay(day)]) {
+    current++;
+    day = addDays(day, -1);
+  }
+
+  let longest = 0;
+  let run = 0;
+  let previous = "";
+  for (const text of Object.keys(days).sort()) {
+    run = previous && isoDay(addDays(parseDay(previous), 1)) === text ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    previous = text;
+  }
+  return { current, longest };
+}
+
+function renderActivity() {
+  const days = readingDays();
+  const yearAgo = isoDay(addDays(new Date(), -365));
+  const lastYear = Object.keys(days).filter((day) => day > yearAgo).length;
+
+  part("activity").hidden = !lastYear;
+  if (!lastYear) {
+    return;
+  }
+
+  const { current, longest } = streaks(days);
+  part("streaks").textContent = [
+    `${plural(lastYear, "day")} in the last year`,
+    current && `streak: ${plural(current, "day")}`,
+    `best: ${plural(longest, "day")}`,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
+  drawHeatmap(part("heatmap"), days);
 }
 
 function weekSeconds(daily) {
