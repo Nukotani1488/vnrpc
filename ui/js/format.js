@@ -21,6 +21,24 @@ export function formatPlaytime(seconds) {
   return `${hours}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
+export function lengthText(minutes) {
+  if (minutes <= 0) {
+    return "";
+  }
+  const hours = minutes / 60;
+  if (hours >= 2) {
+    return `~${Math.round(hours)}h`;
+  }
+  return minutes < 60 ? `~${minutes}m` : `~${hours.toFixed(1)}h`;
+}
+
+export function readingProgress(seconds, lengthMinutes) {
+  if (!(lengthMinutes > 0)) {
+    return null;
+  }
+  return Math.floor(((seconds || 0) / 60 / lengthMinutes) * 100);
+}
+
 export function shortDuration(seconds) {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);

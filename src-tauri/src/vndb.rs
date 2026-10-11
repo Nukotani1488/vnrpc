@@ -11,7 +11,7 @@ const API: &str = "https://api.vndb.org/kana";
 const USER_AGENT: &str = concat!("VisualNovelRPC/", env!("CARGO_PKG_VERSION"));
 const MIN_INTERVAL: Duration = Duration::from_millis(1100);
 const FIELDS: &str =
-    "id,title,alttitle,released,rating,image.url,image.dims,image.sexual,image.violence";
+    "id,title,alttitle,released,rating,length_minutes,image.url,image.dims,image.sexual,image.violence";
 
 pub const LIST_LABELS: [(&str, i64); 4] = [
     ("playing", 1),
@@ -55,7 +55,7 @@ impl VnResult {
             image_url: text(&o["image"]["url"]),
             nsfw: is_nsfw(&o["image"]),
             rating: o["rating"].as_f64().unwrap_or(0.0),
-            length_minutes: 0,
+            length_minutes: o["length_minutes"].as_i64().unwrap_or(0),
         }
     }
 
@@ -99,6 +99,10 @@ fn read_cached(path: &Path, days: u64) -> Option<Value> {
     }
     let text = fs::read_to_string(path).ok()?;
     serde_json::from_str(&text).ok()
+}
+
+fn has_length(raw: &Value) -> bool {
+    raw.get("length_minutes").is_some()
 }
 
 fn vn_id(id: &str) -> String {
@@ -199,7 +203,9 @@ impl Vndb {
             .cache_dir
             .join(format!("{}.json", hash16(&query.to_lowercase())));
         if let Some(Value::Array(raw)) = read_cached(&cache, 7) {
-            return Ok(raw.iter().map(VnResult::from_api).collect());
+            if raw.iter().all(has_length) {
+                return Ok(raw.iter().map(VnResult::from_api).collect());
+            }
         }
 
         let body = json!({
@@ -220,7 +226,7 @@ impl Vndb {
     pub fn get(&self, id: &str) -> Result<Option<VnResult>, String> {
         let id = vn_id(id);
         let cache = self.cache_dir.join(format!("id_{id}.json"));
-        if let Some(raw) = read_cached(&cache, 7) {
+        if let Some(raw) = read_cached(&cache, 7).filter(has_length) {
             return Ok(Some(VnResult::from_api(&raw)));
         }
 
@@ -355,7 +361,7 @@ impl Vndb {
     pub fn wishlist(&self, token: &str) -> Result<Vec<VnResult>, String> {
         let user = self.token_user(token)?;
         let fields: Vec<String> = FIELDS.split(',').map(|f| format!("vn.{f}")).collect();
-        let fields = format!("{},vn.length_minutes", fields.join(","));
+        let fields = fields.join(",");
 
         let mut out = Vec::new();
         for page in 1..=50 {
@@ -370,10 +376,8 @@ impl Vndb {
             let data = self.request(Method::POST, "/ulist", Some(&body), token)?;
 
             for entry in data["results"].as_array().into_iter().flatten() {
-                let vn = &entry["vn"];
-                let mut result = VnResult::from_api(vn);
+                let mut result = VnResult::from_api(&entry["vn"]);
                 result.id = text(&entry["id"]);
-                result.length_minutes = vn["length_minutes"].as_i64().unwrap_or(0);
                 out.push(result);
             }
 

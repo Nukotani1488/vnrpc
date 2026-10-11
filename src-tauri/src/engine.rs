@@ -639,8 +639,17 @@ impl Engine {
             }
         }
 
+        let progress = snap
+            .vn
+            .as_ref()
+            .and_then(|vn| reading_progress(snap.playtime_seconds, vn.length_minutes))
+            .filter(|_| cfg.bool("show_progress"));
         let state = if cfg.bool("show_total_read") && snap.playtime_seconds > 0 {
-            format!("Total read: {}", format_playtime(snap.playtime_seconds))
+            let total = format!("Total read: {}", format_playtime(snap.playtime_seconds));
+            match progress {
+                Some(percent) => format!("{total} · {percent}%"),
+                None => total,
+            }
         } else {
             String::new()
         };
@@ -761,6 +770,13 @@ impl Engine {
             });
         }
     }
+}
+
+fn reading_progress(playtime_seconds: i64, length_minutes: i64) -> Option<i64> {
+    if length_minutes <= 0 {
+        return None;
+    }
+    Some(playtime_seconds / 60 * 100 / length_minutes).filter(|percent| *percent < 100)
 }
 
 fn learned_fields(

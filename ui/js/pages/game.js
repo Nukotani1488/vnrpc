@@ -4,8 +4,10 @@ import {
   formatPlaytime,
   isoDay,
   lastPlayed,
+  lengthText,
   midnight,
   parseDay,
+  readingProgress,
   shortDate,
   weekday,
 } from "../format.js";
@@ -70,6 +72,17 @@ const TEMPLATE = `
         <div class="stat"><span>This week</span><b data-id="week"></b></div>
         <div class="stat"><span>Sessions</span><b data-id="sessions"></b></div>
         <div class="stat"><span>Last played</span><b data-id="last"></b></div>
+      </div>
+
+      <div class="card" data-id="progress" hidden>
+        <div class="card-title">
+          <b>Progress</b>
+          <span class="muted" data-id="progress-text"></span>
+        </div>
+        <div class="bar"><i data-id="progress-bar"></i></div>
+        <div class="hint-text">
+          Compared with the average length on VNDB. Your reading speed and routes change it.
+        </div>
       </div>
 
       <button class="link" data-id="edit-total">Edit total read</button>
@@ -174,6 +187,7 @@ async function load() {
   renderVote(entry);
   renderLauncher(entry);
   renderStats(entry);
+  renderProgress(entry);
   renderChart();
   renderShots();
 
@@ -340,6 +354,26 @@ function renderStats(entry) {
   part("week").textContent = formatPlaytime(week);
   part("sessions").textContent = entry.sessions || "—";
   part("last").textContent = lastPlayed(entry.last_played) || "—";
+}
+
+async function renderProgress(entry) {
+  const shownKey = key;
+  const vnId = entry.vndb_id || entry.matched_vndb_id;
+  const minutes = vnId ? await invoke("vn_length", { vnId }).catch(() => 0) : 0;
+  if (shownKey !== key) {
+    return;
+  }
+
+  const percent = readingProgress(entry.playtime_seconds, minutes);
+  part("progress").hidden = percent === null;
+  if (percent === null) {
+    return;
+  }
+  part("progress-bar").style.width = `${Math.min(percent, 100)}%`;
+  part("progress-text").textContent =
+    percent < 100
+      ? `${percent}% · average ${lengthText(minutes)}`
+      : `Past the average (${lengthText(minutes)})`;
 }
 
 function dailyPoints(today) {

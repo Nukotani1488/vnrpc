@@ -1,5 +1,5 @@
 import { $, el, html } from "../dom.js";
-import { formatPlaytime } from "../format.js";
+import { formatPlaytime, lengthText, readingProgress } from "../format.js";
 import { fileUrl } from "../tauri.js";
 import { register, show } from "../router.js";
 import { store, subscribe } from "../store.js";
@@ -128,7 +128,11 @@ function renderSnapshot(snap) {
   part("section").classList.toggle("editable", manual);
   part("section").title = manual ? "Set by you — click to change" : "Read from the window title";
   part("set-section").hidden = !!snap.section_label;
-  part("time").textContent = `${formatPlaytime(snap.playtime_seconds)} read`;
+  const length = snap.vn?.length_minutes;
+  const percent = readingProgress(snap.playtime_seconds, length);
+  const shownPercent = percent !== null && percent < 100 ? `  ·  ${percent}%` : "";
+  part("time").textContent = `${formatPlaytime(snap.playtime_seconds)} read${shownPercent}`;
+  part("time").title = percent === null ? "" : `Average length on VNDB: ${lengthText(length)}`;
 
   const cover = snap.cover || {};
   setCover(part("cover"), { path: cover.local_path, nsfw: cover.nsfw, label: snap.game_name });

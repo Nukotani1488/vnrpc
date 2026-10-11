@@ -144,6 +144,7 @@ fn main() {
             commands::app::quit,
             commands::library::get_library,
             commands::library::get_game,
+            commands::library::vn_length,
             commands::library::update_game,
             commands::library::set_playtime,
             commands::library::remove_game,

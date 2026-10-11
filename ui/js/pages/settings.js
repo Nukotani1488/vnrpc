@@ -201,6 +201,11 @@ function presenceSection() {
     section("Presence"),
     setting("show_section", "Show where you are in the story", "The “Reading・Chapter 1” line."),
     setting("show_total_read", "Show total time read", "The “Total read: 3h 40m” line."),
+    setting(
+      "show_progress",
+      "Show how far you are",
+      "Adds “· 78%” to the time read, compared with the average length on VNDB.",
+    ),
     setting("show_elapsed", "Show elapsed time"),
     setting("clear_on_close", "Clear presence when the VN closes"),
     setting("show_vndb_button", "Add a “View on VNDB” button"),

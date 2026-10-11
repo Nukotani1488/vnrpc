@@ -212,6 +212,12 @@ pub fn play_game(shared: SharedState, key: String) -> Result<(), LaunchError> {
 }
 
 #[tauri::command]
+pub async fn vn_length(shared: SharedState<'_>, vn_id: String) -> Result<i64, String> {
+    let shared = Arc::clone(&shared);
+    blocking(move || Ok(shared.vndb.get(&vn_id)?.map_or(0, |vn| vn.length_minutes))).await
+}
+
+#[tauri::command]
 pub async fn get_vote(shared: SharedState<'_>, key: String) -> Result<Option<i64>, String> {
     let shared = Arc::clone(&shared);
     blocking(move || vndb_list::vote(&shared, &key)).await

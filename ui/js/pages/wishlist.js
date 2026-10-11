@@ -1,4 +1,5 @@
 import { $, el, html } from "../dom.js";
+import { lengthText } from "../format.js";
 import { register, show } from "../router.js";
 import { store } from "../store.js";
 import { call, setCover } from "../ui.js";
@@ -127,17 +128,6 @@ function next() {
     position = 0;
   }
   render();
-}
-
-function lengthText(minutes) {
-  if (minutes <= 0) {
-    return "";
-  }
-  const hours = minutes / 60;
-  if (hours >= 2) {
-    return `~${Math.round(hours)}h`;
-  }
-  return minutes < 60 ? `~${minutes}m` : `~${hours.toFixed(1)}h`;
 }
 
 function render() {
