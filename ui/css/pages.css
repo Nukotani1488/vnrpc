@@ -219,13 +219,16 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   gap: 14px;
-  align-items: start;
 }
 
 .col {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.game-grid > .col > .card {
+  flex: 1;
 }
 
 .game-head {
@@ -253,10 +256,30 @@
 }
 
 .stat {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
+}
+
+.stat-edit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--subtle);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.stat-edit:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .stat span {

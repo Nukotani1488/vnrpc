@@ -14,7 +14,7 @@ import {
 import { invoke, fileUrl } from "../tauri.js";
 import { register, show } from "../router.js";
 import { store, subscribe } from "../store.js";
-import { call, confirmButton, segmented, setCover, toast } from "../ui.js";
+import { call, confirmButton, openDialog, segmented, setCover, toast } from "../ui.js";
 import { drawChart } from "../components/chart.js";
 import { LAUNCHERS, locateGame, locateTool, playGame } from "../components/play.js";
 
@@ -22,17 +22,40 @@ const TEMPLATE = `
   <button class="back" data-id="back">← Library</button>
 
   <div class="game-grid">
+    <div class="card game-head">
+      <div class="cover mid" data-id="cover"></div>
+      <div class="details">
+        <h2 data-id="name"></h2>
+        <div class="subtle path selectable" data-id="path"></div>
+        <div class="row" data-id="vndb"></div>
+        <button class="link" data-id="change-cover">Change cover & privacy…</button>
+      </div>
+    </div>
+
     <div class="col">
-      <div class="card game-head">
-        <div class="cover mid" data-id="cover"></div>
-        <div class="details">
-          <h2 data-id="name"></h2>
-          <div class="subtle path selectable" data-id="path"></div>
-          <div class="row" data-id="vndb"></div>
-          <button class="link" data-id="change-cover">Change cover & privacy…</button>
+      <div class="stats">
+        <div class="stat">
+          <span>Total read</span><b data-id="total"></b>
+          <button class="stat-edit" data-id="edit-total" title="Edit total read">✎</button>
         </div>
+        <div class="stat"><span>This week</span><b data-id="week"></b></div>
+        <div class="stat"><span>Sessions</span><b data-id="sessions"></b></div>
+        <div class="stat"><span>Last played</span><b data-id="last"></b></div>
       </div>
 
+      <div class="card" data-id="progress" hidden>
+        <div class="card-title">
+          <b>Progress</b>
+          <span class="muted" data-id="progress-text"></span>
+        </div>
+        <div class="bar"><i data-id="progress-bar"></i></div>
+        <div class="hint-text">
+          Compared with the average length on VNDB. Your reading speed and routes change it.
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
       <div class="card">
         <div class="field">
           <b>Status</b>
@@ -66,51 +89,16 @@ const TEMPLATE = `
       </div>
     </div>
 
-    <div class="col">
-      <div class="stats">
-        <div class="stat"><span>Total read</span><b data-id="total"></b></div>
-        <div class="stat"><span>This week</span><b data-id="week"></b></div>
-        <div class="stat"><span>Sessions</span><b data-id="sessions"></b></div>
-        <div class="stat"><span>Last played</span><b data-id="last"></b></div>
-      </div>
-
-      <div class="card" data-id="progress" hidden>
-        <div class="card-title">
-          <b>Progress</b>
-          <span class="muted" data-id="progress-text"></span>
-        </div>
-        <div class="bar"><i data-id="progress-bar"></i></div>
-        <div class="hint-text">
-          Compared with the average length on VNDB. Your reading speed and routes change it.
+    <div class="card">
+      <div class="card-title">
+        <b>Time read</b>
+        <div class="seg" data-id="range">
+          <button data-v="days">30 days</button>
+          <button data-v="weeks">12 weeks</button>
         </div>
       </div>
-
-      <button class="link" data-id="edit-total">Edit total read</button>
-      <div class="card" data-id="editor" hidden>
-        <form class="row" data-id="editor-form">
-          <b>Total read</b>
-          <input type="number" min="0" data-id="hours" /> h
-          <input type="number" min="0" max="59" data-id="minutes" /> min
-          <button class="btn small" type="submit">Save</button>
-          <button class="btn secondary small" type="button" data-id="editor-cancel">Cancel</button>
-        </form>
-        <div class="hint-text">
-          Time read before the app tracked it, or a correction. The day-by-day history
-          (this week, the chart) stays as it is.
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">
-          <b>Time read</b>
-          <div class="seg" data-id="range">
-            <button data-v="days">30 days</button>
-            <button data-v="weeks">12 weeks</button>
-          </div>
-        </div>
-        <div data-id="chart"></div>
-        <div class="hint-text" data-id="history-note"></div>
-      </div>
+      <div data-id="chart"></div>
+      <div class="hint-text" data-id="history-note"></div>
     </div>
   </div>
 
@@ -153,9 +141,7 @@ function build(container) {
   part("locate").onclick = async () => (await locateGame(key)) && load();
   part("vote").onchange = saveVote;
 
-  part("edit-total").onclick = openEditor;
-  part("editor-cancel").onclick = closeEditor;
-  part("editor-form").onsubmit = saveTotal;
+  part("edit-total").onclick = editTotal;
 
   subscribe("library", (change) => isShown() && (!change?.key || change.key === key) && load());
   subscribe("screenshots", (change) => isShown() && change?.key === key && load());
@@ -170,7 +156,6 @@ async function showPage(params) {
     range = "days";
   }
   key = params.key;
-  closeEditor();
   await load();
 }
 
@@ -423,30 +408,51 @@ function renderChart() {
     : "History fills in as you read — time read before it was tracked only counts in the total.";
 }
 
-function openEditor() {
+async function editTotal() {
   const seconds = game.entry.playtime_seconds || 0;
-  part("hours").value = Math.floor(seconds / 3600);
-  part("minutes").value = Math.floor((seconds % 3600) / 60);
-  part("editor").hidden = false;
-  part("edit-total").hidden = true;
-  part("hours").select();
-}
+  const hours = el("input", { type: "number", min: 0, value: Math.floor(seconds / 3600) });
+  const minutes = el("input", {
+    type: "number",
+    min: 0,
+    max: 59,
+    value: Math.floor((seconds % 3600) / 60),
+  });
 
-function closeEditor() {
-  part("editor").hidden = true;
-  part("edit-total").hidden = false;
-}
+  const answer = await openDialog({
+    title: "Total read",
+    body: el(
+      "div",
+      { style: { display: "grid", gap: "12px" } },
+      el("div", { class: "row" }, hours, "h", minutes, "min"),
+      el(
+        "p",
+        { class: "muted small-text" },
+        "Time read before the app tracked it, or a correction. The day-by-day history " +
+          "(this week, the chart) stays as it is.",
+      ),
+    ),
+    actions: [
+      { label: "Cancel", kind: "secondary", value: null },
+      { label: "Save", value: "save" },
+    ],
+    onOpen: (finish) => {
+      hours.select();
+      for (const input of [hours, minutes]) {
+        input.onkeydown = (event) => event.key === "Enter" && finish("save");
+      }
+    },
+  });
+  if (!answer) {
+    return;
+  }
 
-async function saveTotal(event) {
-  event.preventDefault();
-  const hours = Number(part("hours").value || 0);
-  const minutes = Number(part("minutes").value || 0);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || minutes < 0) {
+  const h = Number(hours.value || 0);
+  const m = Number(minutes.value || 0);
+  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || m < 0) {
     toast("Enter whole numbers of hours and minutes.", { error: true });
     return;
   }
-  await call("set_playtime", { key, seconds: hours * 3600 + minutes * 60 });
-  closeEditor();
+  await call("set_playtime", { key, seconds: h * 3600 + m * 60 });
   setTimeout(load, 400);
 }
 
