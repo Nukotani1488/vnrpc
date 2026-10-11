@@ -2,10 +2,8 @@
 
 Show the visual novel you're reading on your **Discord profile**: the game, your current chapter or route, the time read and its cover.
 
-<p align="center">
-  <img src="image/discord-status.png" width="380" alt="Discord status: Subarashiki Hibi, Reading — Wonderful Everyday, Total read: 35h 05m">
-  <img src="image/preview.png" width="380" alt="Discord status: Sakura no Uta, Reading — サクラノ詩, Total read: 34h 42m · 53%">
-</p>
+<p align="center"><img src="image/discord-status.png" width="420" alt="Discord status: Subarashiki Hibi, Reading — Wonderful Everyday, Total read: 35h 05m"></p>
+
 
 <p align="center">
   <a href="https://github.com/lennmoe/vnrpc/releases/latest"><b>Download</b></a> ·
