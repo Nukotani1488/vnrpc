@@ -374,6 +374,11 @@ mod tests {
             ("Senren*Banka - Steam", "Senren*Banka"),
             ("Game (R18) v1.0.3", "Game"),
             ("Fate/stay night 2.0 Direct3D", "Fate/stay night"),
+            (
+                "CLANNAD [English HD Edition] May 11 (Sun.)",
+                "CLANNAD May 11 (Sun.)",
+            ),
+            ("Game (Steam Edition) - Chapter 2", "Game - Chapter 2"),
         ];
         for (title, want) in cases {
             assert_eq!(clean_title(title), want, "title: {title}");

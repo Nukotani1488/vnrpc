@@ -230,6 +230,7 @@ static COMMON_CLEANERS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         r"\s*(?<![\w/])\d+[.;]\d+(?:[.;]\d+)*[a-z]?\b",
         r"\s*\bfps[:=]?\s*\d+\b",
         r"\s*\bDirect3D\b|\s*\bOpenGL\b",
+        r"\s*[\[(（【][^\])）】]*\b(?:edition|hd|remaster(?:ed)?|english|steam|uncensored|full\s*voice|patch(?:ed)?|translat\w*)\b[^\])）】]*[\])）】]",
         r"\s*[\[(（【]\s*[\])）】]",
     ]
     .iter()
