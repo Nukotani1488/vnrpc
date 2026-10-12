@@ -89,7 +89,11 @@ function build(container) {
 
   part("url-show").onclick = previewUrl;
   part("url-use").onclick = useUrl;
-  part("url").onkeydown = (event) => event.key === "Enter" && previewUrl();
+  part("url").onkeydown = (event) => {
+    if (event.key === "Enter") {
+      previewUrl();
+    }
+  };
 
 }
 

@@ -545,7 +545,11 @@ function blacklistTab() {
     }
     input.value = "";
   };
-  input.onkeydown = (event) => event.key === "Enter" && add();
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") {
+      add();
+    }
+  };
 
   return [
     hint(

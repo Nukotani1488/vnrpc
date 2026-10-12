@@ -180,7 +180,11 @@ async function editSection() {
     onOpen: (finish) => {
       input.focus();
       input.select();
-      input.onkeydown = (event) => event.key === "Enter" && finish("save");
+      input.onkeydown = (event) => {
+        if (event.key === "Enter") {
+          finish("save");
+        }
+      };
     },
   });
 

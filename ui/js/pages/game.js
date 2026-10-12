@@ -438,7 +438,11 @@ async function editTotal() {
     onOpen: (finish) => {
       hours.select();
       for (const input of [hours, minutes]) {
-        input.onkeydown = (event) => event.key === "Enter" && finish("save");
+        input.onkeydown = (event) => {
+          if (event.key === "Enter") {
+            finish("save");
+          }
+        };
       }
     },
   });
