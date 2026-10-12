@@ -16,7 +16,7 @@ A small Windows tray app, written in Rust with [Tauri](https://tauri.app). It re
 
 ## Features
 
-- **Finds the VN by itself** (Ren'Py, KiriKiri, SiglusEngine, Unity…), or you pick the window by hand.
+- **Finds the VN by itself** (Ren'Py, KiriKiri, SiglusEngine, BGI…), or you pick the window by hand.
 - **Shows where you are**: prologue, chapter, route or ending, read from the window title (English, French, Japanese).
 - **Tracks time read** for each VN, with a day-by-day history, a reading calendar with streaks, and your progress against the average length on VNDB. You can also set it by hand.
 - **Covers** from VNDB or an image link.
