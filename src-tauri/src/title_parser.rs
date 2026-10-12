@@ -150,35 +150,40 @@ fn flex_pattern(name: &str) -> String {
 
 const STRIP_CHARS: &str = " -–—|:：·•\u{3000}";
 
-pub fn strip_game_name(title: &str, game_name: &str) -> String {
+pub fn strip_game_name(title: &str, names: &[&str]) -> (String, bool) {
     let mut remainder = title.trim().to_string();
-    if !game_name.is_empty() {
-        let mut variants = vec![game_name.to_string()];
+    let mut variants: Vec<String> = Vec::new();
+    for name in names.iter().filter(|n| !n.is_empty()) {
+        variants.push(name.to_string());
         for sep in [":", " - ", "~", "～"] {
-            if game_name.contains(sep) {
-                variants.push(game_name.split(sep).next().unwrap_or("").to_string());
-            }
-        }
-        variants.sort_by_key(|v| std::cmp::Reverse(v.chars().count()));
-        let mut seen: Vec<String> = Vec::new();
-        for variant in variants {
-            let pat = flex_pattern(&variant);
-            if pat.is_empty() || seen.contains(&pat) {
-                continue;
-            }
-            seen.push(pat.clone());
-            let Ok(re) = Regex::new(&format!("(?i){pat}")) else {
-                continue;
-            };
-            if let Ok(Some(m)) = re.find(&remainder) {
-                remainder = format!("{} {}", &remainder[..m.start()], &remainder[m.end()..]);
-                break;
+            if name.contains(sep) {
+                variants.push(name.split(sep).next().unwrap_or("").to_string());
             }
         }
     }
-    squash_spaces(&remainder)
+    variants.sort_by_key(|v| std::cmp::Reverse(v.chars().count()));
+
+    let mut found = false;
+    let mut seen: Vec<String> = Vec::new();
+    for variant in variants {
+        let pat = flex_pattern(&variant);
+        if pat.is_empty() || seen.contains(&pat) {
+            continue;
+        }
+        seen.push(pat.clone());
+        let Ok(re) = Regex::new(&format!("(?i){pat}")) else {
+            continue;
+        };
+        if let Ok(Some(m)) = re.find(&remainder) {
+            remainder = format!("{} {}", &remainder[..m.start()], &remainder[m.end()..]);
+            found = true;
+            break;
+        }
+    }
+    let remainder = squash_spaces(&remainder)
         .trim_matches(|c| STRIP_CHARS.contains(c))
-        .to_string()
+        .to_string();
+    (remainder, found)
 }
 
 static VERSION: LazyLock<Regex> =
@@ -197,8 +202,12 @@ fn squash(text: &str) -> String {
         .to_string()
 }
 
-pub fn parse(title: &str, game_name: &str, user: &[Rule]) -> TitleInfo {
-    let remainder = strip_game_name(title, game_name);
+pub fn parse(title: &str, game_name: &str, other_names: &[String], user: &[Rule]) -> TitleInfo {
+    let names: Vec<&str> = [game_name]
+        .into_iter()
+        .chain(other_names.iter().map(String::as_str))
+        .collect();
+    let (remainder, found) = strip_game_name(title, &names);
     let remainder = VERSION.replace_all(&remainder, " ");
     let remainder = EMPTY_BRACKETS.replace_all(&remainder, "");
     let remainder = squash(&remainder)
@@ -214,7 +223,7 @@ pub fn parse(title: &str, game_name: &str, user: &[Rule]) -> TitleInfo {
             }
         }
     }
-    if loose(&remainder) != loose(game_name) {
+    if found && loose(&remainder) != loose(game_name) {
         return TitleInfo {
             section_type: "free".into(),
             section_label: squash(&titlecase(&remainder)),
@@ -356,14 +365,24 @@ mod tests {
             ("Game 3日目", "Game", "Day 3"),
             ("Making*Lovers  Epilogue", "Making*Lovers", "Epilogue"),
             ("Game - Chapter 4", "Game", "Chapter 4"),
+            ("Some English Title - Our Secret Base", "Japanese Title", ""),
+            ("Unknown Title - Chapter 2", "Japanese Title", "Chapter 2"),
         ];
         for (title, game, want) in cases {
             assert_eq!(
-                parse(title, game, &[]).section_label,
+                parse(title, game, &[], &[]).section_label,
                 want,
                 "title: {title}"
             );
         }
+    }
+
+    #[test]
+    fn sections_use_other_titles() {
+        let other = vec!["HimaNatsu: Of Churches, Sunflowers, and Long Summers".to_string()];
+        let title = "HimaNatsu: Of Churches, Sunflowers, and Long Summers - Our Secret Base";
+        let info = parse(title, "Himawari no Kyoukai to Nagai Natsuyasumi", &other, &[]);
+        assert_eq!(info.section_label, "Our Secret Base");
     }
 
     #[test]

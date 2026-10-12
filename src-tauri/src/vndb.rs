@@ -11,7 +11,7 @@ const API: &str = "https://api.vndb.org/kana";
 const USER_AGENT: &str = concat!("VisualNovelRPC/", env!("CARGO_PKG_VERSION"));
 const MIN_INTERVAL: Duration = Duration::from_millis(1100);
 const FIELDS: &str =
-    "id,title,alttitle,released,rating,length_minutes,image.url,image.dims,image.sexual,image.violence";
+    "id,title,alttitle,titles.title,titles.latin,aliases,released,rating,length_minutes,image.url,image.dims,image.sexual,image.violence";
 
 pub const LIST_LABELS: [(&str, i64); 4] = [
     ("playing", 1),
@@ -31,6 +31,7 @@ pub struct VnResult {
     pub nsfw: bool,
     pub rating: f64,
     pub length_minutes: i64,
+    pub other_titles: Vec<String>,
 }
 
 fn is_nsfw(image: &Value) -> bool {
@@ -41,6 +42,23 @@ fn is_nsfw(image: &Value) -> bool {
 
 fn text(value: &Value) -> String {
     value.as_str().unwrap_or("").to_string()
+}
+
+fn other_titles(o: &Value) -> Vec<String> {
+    let titles = o["titles"].as_array().into_iter().flatten();
+    let names = titles
+        .flat_map(|t| [&t["title"], &t["latin"]])
+        .chain(o["aliases"].as_array().into_iter().flatten())
+        .chain([&o["alttitle"]])
+        .map(text);
+
+    let mut out: Vec<String> = Vec::new();
+    for name in names {
+        if !name.is_empty() && name != text(&o["title"]) && !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
 }
 
 impl VnResult {
@@ -56,6 +74,7 @@ impl VnResult {
             nsfw: is_nsfw(&o["image"]),
             rating: o["rating"].as_f64().unwrap_or(0.0),
             length_minutes: o["length_minutes"].as_i64().unwrap_or(0),
+            other_titles: other_titles(o),
         }
     }
 
@@ -102,7 +121,7 @@ fn read_cached(path: &Path, days: u64) -> Option<Value> {
 }
 
 fn has_length(raw: &Value) -> bool {
-    raw.get("length_minutes").is_some()
+    raw.get("length_minutes").is_some() && raw.get("titles").is_some()
 }
 
 fn vn_id(id: &str) -> String {

@@ -422,7 +422,7 @@ impl Engine {
         let game_name = [
             text(&entry, "title"),
             vn.as_ref().map(|v| v.title.clone()).unwrap_or_default(),
-            steam_name,
+            steam_name.clone(),
         ]
         .into_iter()
         .find(|name| !name.is_empty())
@@ -460,7 +460,9 @@ impl Engine {
             vndb_list::sync_status(&self.shared, &key, &vn_id, &status, true);
         }
 
-        let mut info = parse(&cleaned, &game_name, &rules);
+        let mut other_names = vn.as_ref().map(|v| v.other_titles.clone()).unwrap_or_default();
+        other_names.push(steam_name);
+        let mut info = parse(&cleaned, &game_name, &other_names, &rules);
         let manual_section = text(&entry, "section");
         if info.section_label.is_empty() && !manual_section.trim().is_empty() {
             info.section_type = "manual".into();
