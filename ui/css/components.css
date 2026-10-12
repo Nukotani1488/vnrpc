@@ -286,6 +286,39 @@ input[type="color"] {
   color: var(--text);
 }
 
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: var(--surface-hover);
+}
+
+.menu button.on::after {
+  content: "✓";
+  color: var(--accent);
+}
+
 .toggle {
   display: flex;
   align-items: flex-start;

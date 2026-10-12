@@ -18,10 +18,23 @@ import { drawHeatmap } from "../components/heatmap.js";
 const TEMPLATE = `
   <div class="page-head lib-head">
     <h2>Library</h2>
-    <input type="search" data-id="filter" placeholder="Filter…" />
+    <div class="row">
+      <div class="view-menu" data-id="view-menu">
+        <button class="btn secondary" data-id="view-button" aria-haspopup="menu">
+          <span data-id="view-label"></span> ▾
+        </button>
+        <div class="menu" data-id="view-list" role="menu" hidden>
+          <button data-v="list" role="menuitemradio">List</button>
+          <button data-v="grid" role="menuitemradio">Grid</button>
+          <button data-v="compact" role="menuitemradio">Compact</button>
+          <button data-v="shelves" role="menuitemradio">Shelves</button>
+        </div>
+      </div>
+      <input type="search" data-id="filter" placeholder="Filter…" />
+    </div>
   </div>
 
-  <div class="page-head">
+  <div class="page-head lib-tools">
     <div class="seg" data-id="sort">
       <button data-v="most">Most read</button>
       <button data-v="recent">Recent</button>
@@ -58,6 +71,21 @@ const SORTERS = {
   az: (a, b) => a.name.localeCompare(b.name),
 };
 
+const SHELVES = [
+  ["playing", "Playing"],
+  ["finished", "Finished"],
+  ["stalled", "Stalled"],
+  ["dropped", "Dropped"],
+  ["", "No status"],
+];
+
+const VIEWS = {
+  list: (shown, most) => shown.map((game) => row(game, most)),
+  grid: (shown) => shown.map(tile),
+  compact: (shown) => [compactHead(), ...shown.map(line)],
+  shelves: (shown) => shelves(shown),
+};
+
 let root;
 let games = [];
 let sort = "most";
@@ -71,6 +99,19 @@ function build(container) {
   part("filter").oninput = render;
   part("status").onchange = render;
   part("wishlist").onclick = () => show("wishlist");
+
+  part("view-button").onclick = () => (part("view-list").hidden = !part("view-list").hidden);
+  for (const item of part("view-list").children) {
+    item.onclick = () => {
+      part("view-list").hidden = true;
+      call("update_settings", { changes: { library_view: item.dataset.v } });
+    };
+  }
+  document.addEventListener("click", (event) => {
+    if (!part("view-menu").contains(event.target)) {
+      part("view-list").hidden = true;
+    }
+  });
 
   subscribe("library", () => root.classList.contains("active") && load());
   subscribe("settings", () => root.classList.contains("active") && load());
@@ -151,6 +192,13 @@ function render() {
     sort = value;
     render();
   });
+  const view = VIEWS[store.settings.library_view] ? store.settings.library_view : "list";
+  for (const item of part("view-list").children) {
+    item.classList.toggle("on", item.dataset.v === view);
+    if (item.dataset.v === view) {
+      part("view-label").textContent = item.textContent;
+    }
+  }
 
   const filter = part("filter").value.trim().toLowerCase();
   const status = part("status").value;
@@ -166,22 +214,51 @@ function render() {
 
   if (!shown.length) {
     const message = games.length ? "Nothing matches." : "The VNs you read will show up here.";
+    part("list").className = "lib-list";
     part("list").replaceChildren(el("div", { class: "card lib-empty" }, message));
     return;
   }
 
   const most = Math.max(1, ...games.map((game) => game.playtime));
-  part("list").replaceChildren(...shown.map((game) => row(game, most)));
+  part("list").className = `lib-list view-${view}`;
+  part("list").replaceChildren(...VIEWS[view](shown, most));
+}
+
+function opener(game) {
+  const open = () => show("game", { key: game.key });
+  return {
+    role: "button",
+    tabindex: "0",
+    onclick: open,
+    onkeydown: (event) => event.key === "Enter" && open(),
+  };
+}
+
+function coverOf(game, size = "") {
+  const cover = el("div", { class: `cover ${size}` });
+  setCover(cover, { path: game.cover, nsfw: game.nsfw, label: game.name });
+  return cover;
+}
+
+function statusChip(game) {
+  return game.status && el("span", { class: `status ${game.status}` }, capitalize(game.status));
+}
+
+function playButton(game, label = "▶  Play", kind = "") {
+  const play = el("button", { class: `btn small ${kind}`, title: "Play" }, label);
+  play.onclick = (event) => {
+    event.stopPropagation();
+    playGame(game.key);
+  };
+  play.hidden = !game.has_path;
+  return play;
 }
 
 function row(game, most) {
-  const cover = el("div", { class: "cover small" });
-  setCover(cover, { path: game.cover, nsfw: game.nsfw, label: game.name });
-
   const meta = el(
     "div",
     { class: "meta" },
-    game.status && el("span", { class: `status ${game.status}` }, capitalize(game.status)),
+    statusChip(game),
     el("span", {}, `${formatPlaytime(game.playtime)} read`),
     game.last_played > 0 && el("span", {}, `·  ${lastPlayed(game.last_played)}`),
     game.vndb_id && el("span", {}, `·  ${game.vndb_id}`),
@@ -193,29 +270,75 @@ function row(game, most) {
     el("i", { style: { width: `${(game.playtime / most) * 100}%` } }),
   );
 
-  const play = el("button", { class: "btn small" }, "▶  Play");
-  play.onclick = (event) => {
-    event.stopPropagation();
-    playGame(game.key);
-  };
-  play.hidden = !game.has_path;
-
   const remove = el("button", { class: "btn danger small" });
   confirmButton(remove, "Remove", async () => {
     await call("remove_game", { key: game.key });
     toast(`${game.name} was removed (its screenshots are kept)`);
   });
 
-  const open = () => show("game", { key: game.key });
-  const onkeydown = (event) => event.key === "Enter" && open();
-
   return el(
     "div",
-    { class: "card lib-row", role: "button", tabindex: "0", onclick: open, onkeydown },
-    cover,
+    { class: "card lib-row", ...opener(game) },
+    coverOf(game, "small"),
     el("div", { class: "info" }, el("div", { class: "name" }, game.name), meta, bar),
-    el("div", { class: "actions" }, play, remove),
+    el("div", { class: "actions" }, playButton(game), remove),
   );
 }
 
-register({ id: "library", build, show: load });
+function tile(game) {
+  return el(
+    "div",
+    { class: "lib-tile", ...opener(game) },
+    el("div", { class: "tile-cover" }, coverOf(game), statusChip(game), playButton(game, "▶")),
+    el("div", { class: "name" }, game.name),
+    el("div", { class: "muted small-text" }, `${formatPlaytime(game.playtime)} read`),
+  );
+}
+
+function compactHead() {
+  return el(
+    "div",
+    { class: "lib-line head" },
+    el("span"),
+    el("span", {}, "Title"),
+    el("span", {}, "Status"),
+    el("span", {}, "Read"),
+    el("span", {}, "Last played"),
+    el("span"),
+  );
+}
+
+function line(game) {
+  return el(
+    "div",
+    { class: "lib-line", ...opener(game) },
+    coverOf(game),
+    el("div", { class: "name" }, game.name),
+    el("span", {}, statusChip(game) || ""),
+    el("span", { class: "muted" }, formatPlaytime(game.playtime)),
+    el("span", { class: "muted" }, game.last_played > 0 ? lastPlayed(game.last_played) : "—"),
+    el("span", {}, playButton(game, "▶", "secondary")),
+  );
+}
+
+function shelves(shown) {
+  return SHELVES.map(([status, title]) => {
+    const group = shown.filter((game) => (game.status || "") === status);
+    if (!group.length) {
+      return null;
+    }
+    return el(
+      "div",
+      { class: "shelf" },
+      el("div", { class: "shelf-title" }, el("b", {}, title), el("span", { class: "muted" }, String(group.length))),
+      el("div", { class: "shelf-row" }, group.map(tile)),
+    );
+  }).filter(Boolean);
+}
+
+register({
+  id: "library",
+  build,
+  show: load,
+  onKey: (event) => event.key === "Escape" && (part("view-list").hidden = true),
+});

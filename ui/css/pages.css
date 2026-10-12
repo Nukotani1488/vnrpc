@@ -136,6 +136,22 @@
   width: 280px;
 }
 
+.lib-head :is(.btn, input),
+.lib-tools :is(.btn, select) {
+  height: 38px;
+}
+
+.view-menu {
+  position: relative;
+}
+
+.view-menu .menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+}
+
 .lib-list {
   display: flex;
   flex-direction: column;
@@ -183,6 +199,157 @@
 .lib-row .actions {
   display: flex;
   gap: 8px;
+}
+
+.lib-list.view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 14px;
+}
+
+.lib-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  cursor: pointer;
+  outline: none;
+}
+
+.tile-cover {
+  position: relative;
+}
+
+.lib-tile .cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 7;
+  transition:
+    transform 0.15s var(--ease),
+    box-shadow 0.15s;
+}
+
+.lib-tile:hover .cover,
+.lib-tile:focus-visible .cover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tile-cover .status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 11.5px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+}
+
+.tile-cover .btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.lib-tile:hover .tile-cover .btn,
+.lib-tile:focus-within .tile-cover .btn {
+  opacity: 1;
+}
+
+.lib-tile .name {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lib-list.view-compact {
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.lib-line {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 110px 90px 110px 44px;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.lib-line:first-child {
+  border-top: 0;
+}
+
+.lib-line:hover,
+.lib-line:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.lib-line.head {
+  cursor: default;
+  color: var(--subtle);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lib-line.head:hover {
+  background: none;
+}
+
+.lib-line .cover {
+  width: 36px;
+  height: 50px;
+  border-radius: 5px;
+}
+
+.lib-line .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-line .status {
+  font-size: 12px;
+}
+
+.lib-list.view-shelves {
+  gap: 22px;
+}
+
+.shelf-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.shelf-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 140px;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 6px 2px 10px;
+}
+
+.shelf .tile-cover .status {
+  display: none;
 }
 
 .meta {

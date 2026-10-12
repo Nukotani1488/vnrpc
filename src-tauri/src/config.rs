@@ -19,6 +19,7 @@ fn defaults() -> Map<String, Value> {
         "show_section": true,
         "show_total_read": true,
         "show_progress": false,
+        "library_view": "list",
         "clear_on_close": true,
         "idle_when_unfocused": false,
         "idle_seconds": 60,
