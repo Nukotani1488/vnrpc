@@ -412,8 +412,23 @@
 }
 
 .path {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--subtle);
   font-size: 12px;
+  text-align: left;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.path:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.path:disabled {
+  cursor: default;
 }
 
 .stats {

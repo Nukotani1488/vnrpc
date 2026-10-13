@@ -26,7 +26,7 @@ const TEMPLATE = `
       <div class="cover mid" data-id="cover"></div>
       <div class="details">
         <h2 data-id="name"></h2>
-        <div class="subtle path selectable" data-id="path"></div>
+        <button class="path" data-id="path" title="Show in folder"></button>
         <div class="row" data-id="vndb"></div>
         <button class="link" data-id="change-cover">Change cover & privacy…</button>
       </div>
@@ -165,6 +165,8 @@ async function load() {
 
   part("name").textContent = game.name;
   part("path").textContent = entry.path || "Executable not located yet";
+  part("path").disabled = !entry.path;
+  part("path").onclick = () => call("show_in_folder", { path: entry.path });
   setCover(part("cover"), { path: game.cover, nsfw: entry.cover_nsfw, label: game.name });
 
   renderVndb(entry);
