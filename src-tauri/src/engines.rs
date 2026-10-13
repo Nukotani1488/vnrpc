@@ -36,7 +36,37 @@ pub const BUILTIN_BLACKLIST: &[&str] = &[
     "vnrpc.exe",
     "visualnovelrpc.exe",
     "msedgewebview2.exe",
+    "lockapp.exe",
+    "shellexperiencehost.exe",
+    "startmenuexperiencehost.exe",
+    "sechealthui.exe",
+    "searchapp.exe",
+    "searchui.exe",
+    "peopleexperiencehost.exe",
+    "widgets.exe",
+    "gamebar.exe",
+    "phoneexperiencehost.exe",
 ];
+
+static WINDOWS_DIR: LazyLock<String> = LazyLock::new(|| {
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    format!("{}\\", root.trim_end_matches('\\').to_lowercase())
+});
+
+pub fn is_windows_app(exe_path: &str) -> bool {
+    exe_path
+        .replace('/', "\\")
+        .to_lowercase()
+        .starts_with(WINDOWS_DIR.as_str())
+}
+
+fn file_matches(rule: &str, name: &str) -> bool {
+    if rule.starts_with('.') {
+        name.ends_with(rule)
+    } else {
+        name == rule
+    }
+}
 
 pub fn normalize_exe(name: &str) -> String {
     let base = name
@@ -115,7 +145,7 @@ impl Engine {
             if self
                 .dir_files
                 .iter()
-                .any(|f| listing.iter().any(|n| n.contains(f)))
+                .any(|f| listing.iter().any(|n| file_matches(f, n)))
             {
                 pts += 20;
             }
@@ -165,7 +195,7 @@ static ENGINES: LazyLock<Vec<Engine>> = LazyLock::new(|| {
         Engine::new("Propeller", &[], &[], &[".mpk"]),
         Engine::new("ShSystem", &[], &[], &[".hxp", ".hst"]),
         Engine::new("AI6WIN", &[r"^ai[56]win"], &[], &["mes.arc"]),
-        Engine::new("Qlie", &[r"qlie"], &[], &[".pack", "gamedata"]),
+        Engine::new("Qlie", &[r"qlie"], &[], &[".pack"]),
         Engine::new("Softpal", &[], &[], &["pal.dll", "script.src"]),
         Engine::new("SystemNNN", &[r"systemnnn"], &[], &[".spt", ".nnn"]),
         Engine::new("TmrHiroAdvSystem", &[], &[], &[".srp"]),
@@ -188,7 +218,7 @@ static ENGINES: LazyLock<Vec<Engine>> = LazyLock::new(|| {
             &["seen.txt", "gameexe.ini"],
         ),
         Engine::new("Artemis", &[r"artemis"], &[], &[".pfs", "root.pfs"]),
-        Engine::new("YU-RIS", &[r"yuris", r"^ys_"], &[], &["ysbin", "ypf"]),
+        Engine::new("YU-RIS", &[r"yuris", r"^ys_"], &[], &["ysbin", ".ypf"]),
         Engine::new(
             "NScripter",
             &[r"nscr", r"onscripter", r"ons\.exe$"],
@@ -254,4 +284,26 @@ pub fn clean_title(title: &str) -> String {
         out = r.replace_all(&out, "").into_owned();
     }
     tidy(&out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_rules_match_whole_names() {
+        assert!(file_matches(".pack", "data0.pack"));
+        assert!(!file_matches(".pack", "microsoft.system.package.metadata"));
+        assert!(file_matches("pal.dll", "pal.dll"));
+        assert!(!file_matches("pal.dll", "opal.dll"));
+    }
+
+    #[test]
+    fn windows_apps_are_recognized() {
+        assert!(is_windows_app(
+            r"C:\Windows\SystemApps\Microsoft.LockApp_cw5n1h2txyewy\LockApp.exe"
+        ));
+        assert!(is_windows_app("c:/windows/explorer.exe"));
+        assert!(!is_windows_app(r"C:\Games\Windows Shell\game.exe"));
+    }
 }

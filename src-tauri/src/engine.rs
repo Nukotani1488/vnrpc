@@ -8,7 +8,7 @@ use serde_json::{json, Map, Value};
 
 use crate::config::{url_cache_key, Config};
 use crate::discord::{self, Activity};
-use crate::engines::{blacklist_set, clean_title, detect_engine, normalize_exe};
+use crate::engines::{blacklist_set, clean_title, detect_engine, is_windows_app, normalize_exe};
 use crate::state::{Cmd, Cover, Shared, Snapshot};
 use crate::steam;
 use crate::title_parser::{parse, user_rules};
@@ -98,6 +98,7 @@ impl Watcher {
         let windows: Vec<WindowInfo> = winapi::list_top_level_windows()
             .into_iter()
             .filter(|w| !settings.blacklist.contains(&normalize_exe(w.exe())))
+            .filter(|w| settings.manual || !is_windows_app(&w.exe_path))
             .collect();
 
         let picked = if settings.manual {
