@@ -5,6 +5,7 @@ use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 use winreg::RegKey;
 
 struct SteamApp {
+    id: String,
     name: String,
     install_dir: PathBuf,
 }
@@ -68,13 +69,15 @@ fn installed_apps() -> &'static Vec<SteamApp> {
                 let Ok(text) = std::fs::read_to_string(entry.path()) else {
                     continue;
                 };
-                let (Some(app_name), Some(install)) = (
+                let (Some(id), Some(app_name), Some(install)) = (
+                    vdf_values(&text, "appid").first().copied(),
                     vdf_values(&text, "name").first().copied(),
                     vdf_values(&text, "installdir").first().copied(),
                 ) else {
                     continue;
                 };
                 apps.push(SteamApp {
+                    id: id.to_string(),
                     name: app_name.to_string(),
                     install_dir: dir.join("common").join(install),
                 });
@@ -84,16 +87,24 @@ fn installed_apps() -> &'static Vec<SteamApp> {
     })
 }
 
-pub fn name_for_exe(exe_path: &str) -> Option<String> {
+fn app_for_exe(exe_path: &str) -> Option<&'static SteamApp> {
     if exe_path.is_empty() {
         return None;
     }
     let exe = Path::new(exe_path).to_string_lossy().to_lowercase();
-    installed_apps()
-        .iter()
-        .find(|app| {
-            let dir = app.install_dir.to_string_lossy().to_lowercase();
-            exe.starts_with(&format!("{}\\", dir.trim_end_matches('\\')))
-        })
-        .map(|app| app.name.clone())
+    installed_apps().iter().find(|app| {
+        let dir = app.install_dir.to_string_lossy().to_lowercase();
+        exe.starts_with(&format!("{}\\", dir.trim_end_matches('\\')))
+    })
+}
+
+pub fn name_for_exe(exe_path: &str) -> Option<String> {
+    app_for_exe(exe_path).map(|app| app.name.clone())
+}
+
+pub fn launch_id_for_exe(exe_path: &str) -> Option<String> {
+    let app = app_for_exe(exe_path)?;
+    let folder = Path::new(exe_path).parent()?.to_string_lossy().to_lowercase();
+    let root = app.install_dir.to_string_lossy().to_lowercase();
+    (folder.trim_end_matches('\\') == root.trim_end_matches('\\')).then(|| app.id.clone())
 }

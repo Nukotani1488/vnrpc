@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 
 use crate::config::Config;
 use crate::shell;
+use crate::steam;
 
 pub const NORMAL: &str = "";
 pub const LOCALE_EMULATOR: &str = "le";
@@ -45,6 +46,9 @@ pub fn launch(cfg: &Config, entry: &Map<String, Value>) -> Result<(), LaunchErro
         .and_then(Value::as_str)
         .unwrap_or(NORMAL);
     if launcher != LOCALE_EMULATOR && launcher != NTLEA {
+        if let Some(id) = steam::launch_id_for_exe(&exe.to_string_lossy()) {
+            return shell::open(&format!("steam://rungameid/{id}")).map_err(LaunchError::Failed);
+        }
         return shell::start_program(exe, "", folder).map_err(LaunchError::Failed);
     }
 
