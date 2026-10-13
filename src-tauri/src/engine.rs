@@ -6,8 +6,9 @@ use std::time::{Duration, Instant};
 use fancy_regex::Regex;
 use serde_json::{json, Map, Value};
 
-use crate::config::{url_cache_key, Config};
+use crate::config::{game_key, url_cache_key, Config};
 use crate::discord::{self, Activity};
+use crate::emulators;
 use crate::engines::{blacklist_set, clean_title, detect_engine, is_windows_app, normalize_exe};
 use crate::state::{Cmd, Cover, Shared, Snapshot};
 use crate::steam;
@@ -386,12 +387,17 @@ impl Engine {
     }
 
     fn handle_target(&mut self, target: Target) {
-        let key = self
-            .shared
-            .config
-            .lock()
-            .unwrap()
-            .key_for(&target.exe, &target.exe_path);
+        let (key, emulated) = {
+            let cfg = self.shared.config.lock().unwrap();
+            let split = cfg.str("detection_mode") == "manual" && cfg.bool("split_by_title");
+            let emulated = emulators::game_in_window(&target.exe, &target.title, split);
+            let key = match &emulated {
+                Some(game) => format!("{}@{}", game_key(&target.exe), game.id),
+                None if emulators::emulator_name(&target.exe).is_some() => game_key(&target.exe),
+                None => cfg.key_for(&target.exe, &target.exe_path),
+            };
+            (key, emulated)
+        };
         if key != self.current_key {
             self.start_session(&key);
         }
@@ -412,8 +418,11 @@ impl Engine {
             )
         };
 
-        let cleaned = clean_title(&target.title);
-        let steam_name = if use_steam {
+        let cleaned = match &emulated {
+            Some(game) => game.name.clone(),
+            None => clean_title(&target.title),
+        };
+        let steam_name = if use_steam && emulated.is_none() {
             steam::name_for_exe(&target.exe_path).unwrap_or_default()
         } else {
             String::new()
@@ -427,7 +436,10 @@ impl Engine {
         ]
         .into_iter()
         .find(|name| !name.is_empty())
-        .unwrap_or_else(|| guess_game_name(&cleaned));
+        .unwrap_or_else(|| match &emulated {
+            Some(game) => game.display_name(),
+            None => guess_game_name(&cleaned),
+        });
 
         let cover = self.resolve_cover(&entry, vn.as_ref(), nsfw_ok, &asset);
         let learned = learned_fields(&entry, &game_name, vn.as_ref(), &cover);
@@ -477,7 +489,10 @@ impl Engine {
             detected: true,
             key,
             exe: target.exe,
-            engine_name: target.engine,
+            engine_name: emulated
+                .as_ref()
+                .map_or(target.engine, |game| game.emulator.clone()),
+            emulator: emulated.map(|game| game.emulator).unwrap_or_default(),
             raw_title: target.title,
             game_name,
             section_type: info.section_type,

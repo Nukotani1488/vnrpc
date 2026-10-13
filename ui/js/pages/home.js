@@ -3,7 +3,7 @@ import { formatPlaytime, lengthText, readingProgress } from "../format.js";
 import { fileUrl } from "../tauri.js";
 import { register, show } from "../router.js";
 import { store, subscribe } from "../store.js";
-import { call, confirmButton, openDialog, segmented, setCover, toast } from "../ui.js";
+import { call, confirmButton, openDialog, segmented, setCover, toast, toggle } from "../ui.js";
 
 const TEMPLATE = `
   <div class="banner warn" data-id="paused" hidden>
@@ -24,6 +24,7 @@ const TEMPLATE = `
         <div class="eyebrow">Now reading</div>
         <h1 data-id="title"></h1>
         <div class="muted" data-id="sub"></div>
+        <div class="hint-text" data-id="emu-hint" hidden></div>
 
         <div class="chips">
           <span class="chip accent" data-id="section" hidden></span>
@@ -69,6 +70,7 @@ const TEMPLATE = `
     <span class="muted" data-id="mode-hint"></span>
     <select data-id="window" hidden></select>
     <button class="btn secondary small" data-id="refresh" hidden>Refresh</button>
+    <span data-id="split" hidden></span>
 
     <div class="detected-process" data-id="process" hidden>
       <span class="muted small-text">Detected</span>
@@ -122,6 +124,11 @@ function renderSnapshot(snap) {
 
   part("title").textContent = snap.game_name || snap.raw_title;
   part("sub").textContent = [snap.engine_name, snap.exe].filter(Boolean).join("  ·  ");
+  const newGame = !!snap.emulator && !snap.vn;
+  part("emu-hint").hidden = !newGame;
+  part("emu-hint").textContent = newGame
+    ? `New ${snap.emulator} game: pick it with “Change VN / cover…” to give it its name and cover.`
+    : "";
   const manual = snap.section_type === "manual";
   part("section").hidden = !snap.section_label;
   part("section").textContent = snap.section_label;
@@ -312,6 +319,14 @@ function renderDetection() {
     mode === "auto" ? "Finds running VN engines by itself" : "Uses the window you pick";
   part("window").hidden = mode !== "manual";
   part("refresh").hidden = mode !== "manual";
+  part("split").hidden = mode !== "manual";
+  const split = toggle("Separate games by window title", store.settings.split_by_title, (on) =>
+    call("update_settings", { changes: { split_by_title: on } }),
+  );
+  split.title =
+    "For emulators: each game gets its own time read, cover and VNDB entry. " +
+    "Known emulators (Ryujinx, yuzu, PPSSPP…) already do it by themselves.";
+  part("split").replaceChildren(split);
 
   if (mode === "manual") {
     fillWindows();

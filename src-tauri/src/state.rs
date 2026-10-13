@@ -24,6 +24,7 @@ pub struct Snapshot {
     pub key: String,
     pub exe: String,
     pub engine_name: String,
+    pub emulator: String,
     pub raw_title: String,
     pub game_name: String,
     pub section_type: String,

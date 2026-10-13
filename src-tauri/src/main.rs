@@ -3,6 +3,7 @@
 mod config;
 mod discord;
 mod engine;
+mod emulators;
 mod engines;
 mod state;
 mod steam;
