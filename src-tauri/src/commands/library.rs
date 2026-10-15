@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use super::{blocking, SharedState};
 use crate::config::{Config, Entry, STATUSES};
-use crate::engines::{blacklist_set, normalize_exe};
+use crate::engines::{blacklist_set, is_windows_app, normalize_exe};
 use crate::launcher::{self, LaunchError};
 use crate::screenshots;
 use crate::state::{Cmd, Shared};
@@ -41,7 +41,7 @@ pub fn visible_games(cfg: &Config) -> Vec<(String, Entry)> {
             } else {
                 path
             };
-            !blacklist.contains(&normalize_exe(&exe))
+            !blacklist.contains(&normalize_exe(&exe)) && !is_windows_app(&exe)
         })
         .map(|(key, entry)| (key.clone(), entry.clone()))
         .collect()
