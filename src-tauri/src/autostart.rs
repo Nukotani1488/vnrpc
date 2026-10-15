@@ -11,9 +11,19 @@ pub fn is_enabled() -> bool {
         .is_ok()
 }
 
+fn wanted_command() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    Some(format!("\"{}\" --minimized", exe.display()))
+}
+
 pub fn refresh() {
-    if is_enabled() {
-        let _ = set_enabled(true);
+    let saved = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey_with_flags(RUN_KEY, KEY_READ)
+        .and_then(|key| key.get_value::<String, _>(VALUE_NAME));
+    if let (Ok(saved), Some(wanted)) = (saved, wanted_command()) {
+        if saved != wanted {
+            let _ = set_enabled(true);
+        }
     }
 }
 
@@ -23,8 +33,7 @@ pub fn set_enabled(enabled: bool) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     if enabled {
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let command = format!("\"{}\" --minimized", exe.display());
+        let command = wanted_command().ok_or("can't find the app's location")?;
         return key
             .set_value(VALUE_NAME, &command)
             .map_err(|e| e.to_string());
