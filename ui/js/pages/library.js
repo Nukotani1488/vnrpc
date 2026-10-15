@@ -179,10 +179,11 @@ function renderActivity() {
 }
 
 function weekSeconds(daily) {
-  const today = new Date();
+  const today = midnight(new Date());
+  const monday = addDays(today, -((today.getDay() + 6) % 7));
   let total = 0;
-  for (let back = 0; back < 7; back++) {
-    total += daily[isoDay(addDays(today, -back))] || 0;
+  for (let day = monday; day <= today; day = addDays(day, 1)) {
+    total += daily[isoDay(day)] || 0;
   }
   return total;
 }
