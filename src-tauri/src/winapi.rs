@@ -7,7 +7,7 @@ use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindow,
+    EnumWindows, GetClassNameW, GetClientRect, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindow,
     GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindow,
     IsWindowVisible, SetWindowLongW, SystemParametersInfoW, GWL_EXSTYLE, GW_OWNER,
     SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SPI_GETWORKAREA,
@@ -21,6 +21,7 @@ pub struct WindowInfo {
     pub pid: u32,
     pub exe_path: String,
     pub class_name: String,
+    pub area: i64,
 }
 
 impl WindowInfo {
@@ -109,6 +110,14 @@ unsafe extern "system" fn collect(h: HWND, lparam: LPARAM) -> BOOL {
     true.into()
 }
 
+fn client_area(h: isize) -> i64 {
+    let mut rect = RECT::default();
+    unsafe {
+        let _ = GetClientRect(hwnd(h), &mut rect);
+    }
+    i64::from(rect.right - rect.left).max(0) * i64::from(rect.bottom - rect.top).max(0)
+}
+
 pub fn list_top_level_windows() -> Vec<WindowInfo> {
     let mut handles: Vec<isize> = Vec::new();
     unsafe {
@@ -135,6 +144,7 @@ pub fn list_top_level_windows() -> Vec<WindowInfo> {
             pid,
             exe_path: process_image_path(pid),
             class_name: class_name(h),
+            area: client_area(h),
         });
     }
     out

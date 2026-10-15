@@ -60,6 +60,17 @@ pub fn is_windows_app(exe_path: &str) -> bool {
         .starts_with(WINDOWS_DIR.as_str())
 }
 
+static HELPER_EXE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)^(?:launcher|config|configtool|setup|settings|unins\d*|uninstall|update|updater|crashreport|crashhandler|language)(?:[_-]?(?:x64|x86|64|32))?\.exe$",
+    )
+    .unwrap()
+});
+
+pub fn is_helper_exe(exe: &str) -> bool {
+    HELPER_EXE.is_match(exe).unwrap_or(false)
+}
+
 fn file_matches(rule: &str, name: &str) -> bool {
     if rule.starts_with('.') {
         name.ends_with(rule)
@@ -173,7 +184,7 @@ static ENGINES: LazyLock<Vec<Engine>> = LazyLock::new(|| {
         Engine::new(
             "KiriKiri",
             &[r"^krkr", r"kirikiri"],
-            &[r"^tform", r"kirikiri"],
+            &[r"tvp", r"kirikiri"],
             &[".xp3", "data.xp3", "startup.tjs"],
         ),
         Engine::new(
@@ -235,7 +246,7 @@ static ENGINES: LazyLock<Vec<Engine>> = LazyLock::new(|| {
 });
 
 pub fn detect_engine(win: &WindowInfo) -> Option<(&'static Engine, u32)> {
-    if BUILTIN_BLACKLIST.contains(&win.exe().to_lowercase().as_str()) {
+    if BUILTIN_BLACKLIST.contains(&win.exe().to_lowercase().as_str()) || is_helper_exe(win.exe()) {
         return None;
     }
     let mut best: Option<(&'static Engine, u32)> = None;
@@ -296,6 +307,15 @@ mod tests {
         assert!(!file_matches(".pack", "microsoft.system.package.metadata"));
         assert!(file_matches("pal.dll", "pal.dll"));
         assert!(!file_matches("pal.dll", "opal.dll"));
+    }
+
+    #[test]
+    fn launchers_are_not_games() {
+        assert!(is_helper_exe("LAUNCHER.exe"));
+        assert!(is_helper_exe("LAUNCHER_x64.exe"));
+        assert!(is_helper_exe("unins000.exe"));
+        assert!(!is_helper_exe("nine_kokoiro.exe"));
+        assert!(!is_helper_exe("launcher_of_dreams.exe"));
     }
 
     #[test]

@@ -9,7 +9,9 @@ use serde_json::{json, Map, Value};
 use crate::config::{game_key, url_cache_key, Config};
 use crate::discord::{self, Activity};
 use crate::emulators;
-use crate::engines::{blacklist_set, clean_title, detect_engine, is_windows_app, normalize_exe};
+use crate::engines::{
+    blacklist_set, clean_title, detect_engine, is_helper_exe, is_windows_app, normalize_exe,
+};
 use crate::state::{Cmd, Cover, Shared, Snapshot};
 use crate::steam;
 use crate::title_parser::{parse, user_rules};
@@ -20,6 +22,7 @@ use crate::winapi::{self, WindowInfo};
 const KNOWN_GAME_SCORE: u32 = 1000;
 
 const GONE_AFTER: u32 = 3;
+const LOCK_RECHECK: u32 = 5;
 
 const PLAYTIME_FLUSH: Duration = Duration::from_secs(60);
 
@@ -40,6 +43,7 @@ enum Change {
 #[derive(Default)]
 struct Watcher {
     locked: Option<(isize, String)>,
+    lock_age: u32,
     last_key: Option<(isize, String)>,
     reported: bool,
     misses: u32,
@@ -86,11 +90,21 @@ impl Watcher {
     }
 
     fn tick(&mut self, settings: &WatchSettings) -> Option<Change> {
+        self.lock_age += 1;
+        let recheck = self.lock_age >= LOCK_RECHECK;
+        if recheck {
+            self.lock_age = 0;
+        }
+
+        let mut held = None;
         if let Some((hwnd, engine)) = self.locked.clone() {
             if winapi::is_window_visible(hwnd) {
                 let title = winapi::window_title(hwnd);
                 if !title.trim().is_empty() {
-                    return self.emit(hwnd, title, engine, None);
+                    if !recheck {
+                        return self.emit(hwnd, title, engine, None);
+                    }
+                    held = Some((hwnd, engine, title));
                 }
             }
             self.locked = None;
@@ -107,6 +121,16 @@ impl Watcher {
         } else {
             pick_auto(settings, windows)
         };
+
+        if let Some((hwnd, engine, title)) = held {
+            let same_game = picked
+                .as_ref()
+                .is_some_and(|(win, _)| win.pid == winapi::window_pid(hwnd));
+            if !same_game {
+                self.locked = Some((hwnd, engine.clone()));
+                return self.emit(hwnd, title, engine, None);
+            }
+        }
 
         match picked {
             Some((win, engine)) => {
@@ -171,10 +195,13 @@ fn pick_manual(settings: &WatchSettings, windows: Vec<WindowInfo>) -> Option<(Wi
         return None;
     }
 
-    let win = windows.into_iter().find(|w| {
-        w.exe().to_lowercase() == *exe
-            && (title.is_empty() || w.title.to_lowercase().contains(title.as_str()))
-    })?;
+    let win = windows
+        .into_iter()
+        .filter(|w| {
+            w.exe().to_lowercase() == *exe
+                && (title.is_empty() || w.title.to_lowercase().contains(title.as_str()))
+        })
+        .max_by_key(|w| w.area)?;
     let engine = engine_name(&win);
     Some((win, engine))
 }
@@ -190,10 +217,11 @@ fn pick_auto(settings: &WatchSettings, windows: Vec<WindowInfo>) -> Option<(Wind
             None => (String::new(), 0),
         };
         let path = win.exe_path.replace('/', "\\").to_lowercase();
-        if !win.exe_path.is_empty() && known.contains(&path) {
+        if !win.exe_path.is_empty() && known.contains(&path) && !is_helper_exe(win.exe()) {
             score = KNOWN_GAME_SCORE;
         }
-        if score > best_score {
+        let bigger = best.as_ref().is_some_and(|(b, _)| win.area > b.area);
+        if score > best_score || (score > 0 && score == best_score && bigger) {
             best_score = score;
             best = Some((win, engine));
         }
