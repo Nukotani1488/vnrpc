@@ -167,9 +167,14 @@ pub fn set_playtime(shared: SharedState, key: String, seconds: i64) {
 }
 
 #[tauri::command(async)]
-pub fn remove_game(shared: SharedState, key: String) {
+pub fn remove_game(shared: SharedState, key: String) -> Result<(), String> {
+    let snap = shared.snapshot();
+    if snap.detected && snap.key == key {
+        return Err("Close the game before removing it.".into());
+    }
     shared.config.lock().unwrap().remove_game(&key);
     changed(&shared, &key);
+    Ok(())
 }
 
 #[tauri::command(async)]
