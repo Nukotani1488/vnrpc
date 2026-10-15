@@ -81,6 +81,23 @@ fn folder_name(path: &str) -> String {
         .unwrap_or_default()
 }
 
+fn is_generic_folder(name: &str) -> bool {
+    const GENERIC: [&str; 12] = [
+        "", "game", "games", "bin", "x64", "x86", "win64", "win32", "release", "data", "app",
+        "program",
+    ];
+    GENERIC.contains(&name)
+}
+
+fn vn_of(entry: &Entry) -> String {
+    ["vndb_id", "matched_vndb_id"]
+        .iter()
+        .filter_map(|field| entry.get(*field).and_then(Value::as_str))
+        .find(|id| !id.is_empty())
+        .unwrap_or("")
+        .to_string()
+}
+
 pub fn safe_filename(key: &str) -> String {
     let cleaned: String = key
         .chars()
@@ -340,7 +357,9 @@ impl Config {
             if saved.is_empty() {
                 return key.clone();
             }
-            if !Path::new(&saved).exists() && folder_name(&saved) == folder {
+            if folder_name(&saved) == folder
+                && (!is_generic_folder(&folder) || !Path::new(&saved).exists())
+            {
                 return key.clone();
             }
         }
@@ -429,6 +448,83 @@ impl Config {
                 .unwrap_or_else(|| safe_filename(key));
             let _ = fs::remove_file(self.games_dir().join(format!("{stem}.yaml")));
         }
+    }
+
+    pub fn duplicates_of(&self, key: &str) -> Vec<String> {
+        let Some(entry) = self.games.get(key) else {
+            return vec![];
+        };
+        let path_of = |e: &Entry| e.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+        let stem_of = |k: &str| game_key(k.split('@').next().unwrap_or(""));
+        let path = path_of(entry);
+        let vn = vn_of(entry);
+        let folder = folder_name(&path);
+        let same_install = !path.is_empty() && crate::emulators::emulator_name(&path).is_none();
+
+        self.games
+            .iter()
+            .filter(|(other, _)| other.as_str() != key)
+            .filter(|(other, e)| {
+                let other_path = path_of(e);
+                let same_vn = !vn.is_empty() && vn_of(e) == vn;
+                let same_path = same_install && norm_path(&other_path) == norm_path(&path);
+                let same_folder = same_install
+                    && !other_path.is_empty()
+                    && stem_of(other) == stem_of(key)
+                    && folder_name(&other_path) == folder
+                    && !is_generic_folder(&folder);
+                same_vn || same_path || same_folder
+            })
+            .map(|(other, _)| other.clone())
+            .collect()
+    }
+
+    pub fn merge_games(&mut self, from: &str, into: &str) {
+        let Some(source) = self.games.get(from).cloned() else {
+            return;
+        };
+        let mut target = self.game(into);
+        let num = |e: &Entry, field: &str| e.get(field).and_then(Value::as_i64).unwrap_or(0);
+        let blank = |v: Option<&Value>| match v {
+            None | Some(Value::Null) => true,
+            Some(Value::String(s)) => s.is_empty(),
+            _ => false,
+        };
+
+        for (field, value) in &source {
+            if blank(target.get(field)) {
+                target.insert(field.clone(), value.clone());
+            }
+        }
+        if num(&source, "last_played") > num(&target, "last_played") {
+            if let Some(path) = source.get("path").filter(|p| !blank(Some(p))) {
+                target.insert("path".into(), path.clone());
+            }
+        }
+        for field in ["playtime_seconds", "sessions"] {
+            target.insert(field.into(), json!(num(&target, field) + num(&source, field)));
+        }
+        target.insert(
+            "last_played".into(),
+            json!(num(&target, "last_played").max(num(&source, "last_played"))),
+        );
+
+        let mut daily = target
+            .get("daily")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        for (day, seconds) in source.get("daily").and_then(Value::as_object).into_iter().flatten() {
+            let before = daily.get(day).and_then(Value::as_i64).unwrap_or(0);
+            daily.insert(day.clone(), json!(before + seconds.as_i64().unwrap_or(0)));
+        }
+        target.insert("daily".into(), Value::Object(daily));
+
+        let frac = self.frac.get(from).copied().unwrap_or(0.0);
+        *self.frac.entry(into.to_string()).or_insert(0.0) += frac;
+        self.games.insert(into.to_string(), target);
+        self.save_game(into);
+        self.remove_game(from);
     }
 
     pub fn playtime(&self, key: &str) -> i64 {
@@ -530,4 +626,69 @@ pub fn url_cache_key(url: &str) -> String {
         "url_{}",
         &sha1_smol::Sha1::from(url).digest().to_string()[..12]
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn library(name: &str) -> Config {
+        let dir = std::env::temp_dir().join(format!("vnrpc-test-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        Config::load(&dir)
+    }
+
+    fn add(cfg: &mut Config, key: &str, fields: Value) {
+        cfg.set_game(key, fields.as_object().cloned().unwrap_or_default());
+    }
+
+    #[test]
+    fn a_second_copy_of_a_game_reuses_its_entry() {
+        let mut cfg = library("copy");
+        add(&mut cfg, "bgi", json!({ "path": r"C:\vn\Eustia Full Edited\BGI.exe" }));
+        add(&mut cfg, "bgi@subahibi", json!({ "path": r"C:\vn\Subahibi\BGI.exe" }));
+
+        assert_eq!(cfg.key_for("BGI.exe", r"D:\other\Eustia Full Edited\BGI.exe"), "bgi");
+        assert_ne!(cfg.key_for("BGI.exe", r"D:\other\Sakura no Uta\BGI.exe"), "bgi");
+    }
+
+    #[test]
+    fn finds_duplicates_but_not_lookalikes() {
+        let mut cfg = library("dupes");
+        add(&mut cfg, "bgi", json!({ "path": r"C:\a\Eustia\BGI.exe", "vndb_id": "v3770" }));
+        add(&mut cfg, "bgi@eustia_2", json!({ "path": r"D:\b\Eustia\BGI.exe" }));
+        add(&mut cfg, "bgi@moved", json!({ "path": r"E:\Renamed\BGI.exe", "matched_vndb_id": "v3770" }));
+        add(&mut cfg, "bgi@subahibi", json!({ "path": r"C:\a\Subahibi\BGI.exe", "vndb_id": "v3144" }));
+        add(&mut cfg, "ryujinx@01001", json!({ "path": r"C:\emu\Ryujinx.exe" }));
+        add(&mut cfg, "ryujinx@01002", json!({ "path": r"C:\emu\Ryujinx.exe" }));
+
+        let mut found = cfg.duplicates_of("bgi");
+        found.sort();
+        assert_eq!(found, vec!["bgi@eustia_2", "bgi@moved"]);
+        assert!(cfg.duplicates_of("ryujinx@01001").is_empty());
+    }
+
+    #[test]
+    fn merging_adds_up_time_and_keeps_choices() {
+        let mut cfg = library("merge");
+        add(&mut cfg, "keep", json!({
+            "title": "Aiyoku no Eustia", "playtime_seconds": 100, "sessions": 2,
+            "last_played": 10, "daily": { "2026-10-01": 100 }, "path": "old.exe",
+        }));
+        add(&mut cfg, "drop", json!({
+            "playtime_seconds": 50, "sessions": 1, "last_played": 20, "status": "playing",
+            "daily": { "2026-10-01": 20, "2026-10-02": 30 }, "path": "new.exe",
+        }));
+
+        cfg.merge_games("drop", "keep");
+        let merged = cfg.game("keep");
+        assert!(cfg.all_games().get("drop").is_none());
+        assert_eq!(merged["playtime_seconds"], 150);
+        assert_eq!(merged["sessions"], 3);
+        assert_eq!(merged["last_played"], 20);
+        assert_eq!(merged["daily"], json!({ "2026-10-01": 120, "2026-10-02": 30 }));
+        assert_eq!(merged["title"], "Aiyoku no Eustia");
+        assert_eq!(merged["status"], "playing");
+        assert_eq!(merged["path"], "new.exe");
+    }
 }

@@ -14,12 +14,17 @@ import {
 import { invoke, fileUrl } from "../tauri.js";
 import { register, show } from "../router.js";
 import { store, subscribe } from "../store.js";
-import { call, confirmButton, openDialog, segmented, setCover, toast } from "../ui.js";
+import { ask, call, confirmButton, openDialog, segmented, setCover, toast } from "../ui.js";
 import { drawChart } from "../components/chart.js";
 import { LAUNCHERS, locateGame, locateTool, playGame } from "../components/play.js";
 
 const TEMPLATE = `
   <button class="back" data-id="back">← Library</button>
+
+  <div class="banner info dupe" data-id="dupe" hidden>
+    <i></i><span data-id="dupe-text"></span>
+    <button class="btn small" data-id="dupe-merge">Merge them</button>
+  </div>
 
   <div class="game-grid">
     <div class="card game-head">
@@ -173,6 +178,7 @@ async function load() {
   renderStatus(entry);
   renderVote(entry);
   renderLauncher(entry);
+  renderDuplicates();
   renderStats(entry);
   renderProgress(entry);
   renderChart();
@@ -341,6 +347,36 @@ function renderStats(entry) {
   part("week").textContent = formatPlaytime(week);
   part("sessions").textContent = entry.sessions || "—";
   part("last").textContent = lastPlayed(entry.last_played) || "—";
+}
+
+function renderDuplicates() {
+  const other = game.duplicates[0];
+  part("dupe").hidden = !other;
+  if (!other) {
+    return;
+  }
+  part("dupe-text").textContent =
+    `Looks like the same game as “${other.name}” (${formatPlaytime(other.playtime)} read).`;
+  part("dupe-merge").onclick = () => mergeWith(other);
+}
+
+async function mergeWith(other) {
+  const keepThis = (game.entry.playtime_seconds || 0) >= other.playtime;
+  const [from, into, name] = keepThis
+    ? [other.key, key, game.name]
+    : [key, other.key, other.name];
+
+  const sure = await ask(
+    "Merge these entries?",
+    `Time read, history, sessions and screenshots are combined into “${name}”. This can't be undone.`,
+    { yes: "Merge" },
+  );
+  if (!sure) {
+    return;
+  }
+  await call("merge_games", { from, into });
+  toast(`Merged into ${name}`);
+  show("game", { key: into });
 }
 
 async function renderProgress(entry) {

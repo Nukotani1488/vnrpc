@@ -130,6 +130,26 @@ pub fn list_shots(folder: Option<&Path>) -> Vec<PathBuf> {
     shots
 }
 
+pub fn move_shots(from: &Path, to: &Path) -> Result<(), String> {
+    if from == to || !from.is_dir() {
+        return Ok(());
+    }
+    fs::create_dir_all(to).map_err(|e| e.to_string())?;
+    for shot in list_shots(Some(from)) {
+        let stem = shot.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        let ext = shot.extension().unwrap_or_default().to_string_lossy().to_string();
+        let mut dest = to.join(format!("{stem}.{ext}"));
+        let mut n = 2;
+        while dest.exists() {
+            dest = to.join(format!("{stem} ({n}).{ext}"));
+            n += 1;
+        }
+        fs::rename(&shot, &dest).map_err(|e| e.to_string())?;
+    }
+    let _ = fs::remove_dir(from);
+    Ok(())
+}
+
 #[derive(Serialize)]
 pub struct GameShots {
     pub key: String,

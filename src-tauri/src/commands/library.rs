@@ -90,6 +90,18 @@ pub fn get_game(shared: SharedState, key: String) -> Value {
     let shots = screenshots::list_shots(folder.as_deref());
     let launcher_name = text(&entry, "launcher");
     let tool = launcher::tool_path(&cfg, &launcher_name);
+    let duplicates: Vec<Value> = cfg
+        .duplicates_of(&key)
+        .into_iter()
+        .map(|other| {
+            let other_entry = cfg.game(&other);
+            json!({
+                "key": other,
+                "name": screenshots::display_name(&other, &other_entry),
+                "playtime": other_entry.get("playtime_seconds").and_then(Value::as_i64).unwrap_or(0),
+            })
+        })
+        .collect();
 
     json!({
         "key": key,
@@ -102,6 +114,7 @@ pub fn get_game(shared: SharedState, key: String) -> Value {
         "has_token": !cfg.str("vndb_token").trim().is_empty(),
         "vndb_sync": cfg.bool("vndb_sync"),
         "hotkey": cfg.str("screenshot_hotkey"),
+        "duplicates": duplicates,
     })
 }
 
@@ -157,6 +170,27 @@ pub fn set_playtime(shared: SharedState, key: String, seconds: i64) {
 pub fn remove_game(shared: SharedState, key: String) {
     shared.config.lock().unwrap().remove_game(&key);
     changed(&shared, &key);
+}
+
+#[tauri::command(async)]
+pub fn merge_games(shared: SharedState, from: String, into: String) -> Result<(), String> {
+    let snap = shared.snapshot();
+    if snap.detected && (snap.key == from || snap.key == into) {
+        return Err("Close the game before merging.".into());
+    }
+    let (from_shots, into_shots) = {
+        let mut cfg = shared.config.lock().unwrap();
+        let from_shots = screenshots::folder_for(&mut cfg, &from, false);
+        let into_shots = screenshots::folder_for(&mut cfg, &into, false);
+        cfg.merge_games(&from, &into);
+        (from_shots, into_shots)
+    };
+    if let (Some(from_shots), Some(into_shots)) = (from_shots, into_shots) {
+        screenshots::move_shots(&from_shots, &into_shots)?;
+    }
+    changed(&shared, &into);
+    shared.emit("screenshots-changed", json!({ "key": into }));
+    Ok(())
 }
 
 #[tauri::command(async)]

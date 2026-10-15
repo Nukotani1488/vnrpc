@@ -382,6 +382,14 @@
   color: var(--muted);
 }
 
+.dupe {
+  margin-bottom: 14px;
+}
+
+.dupe .btn {
+  margin-left: auto;
+}
+
 .game-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
